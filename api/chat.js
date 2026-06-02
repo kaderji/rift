@@ -6,11 +6,11 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { prompt, image, mimeType } = req.body;
+  const { prompt, image, mimeType } = req.body || {};
   if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
 
   const GEMINI_KEY = process.env.GEMINI_KEY;
-  if (!GEMINI_KEY) return res.status(500).json({ error: 'API key not configured' });
+  if (!GEMINI_KEY) return res.status(500).json({ error: 'GEMINI_KEY not set in environment variables' });
 
   try {
     const parts = [];
@@ -29,12 +29,17 @@ module.exports = async function handler(req, res) {
       }
     );
 
+    const data = await geminiRes.json();
+
     if (!geminiRes.ok) {
-      const err = await geminiRes.text();
-      return res.status(502).json({ error: 'Gemini API error', detail: err });
+      // Return Gemini's actual error so we can see what's wrong
+      return res.status(502).json({ 
+        error: 'Gemini API error', 
+        status: geminiRes.status,
+        detail: data 
+      });
     }
 
-    const data = await geminiRes.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return res.status(200).json({ text });
 
